@@ -5,7 +5,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import Perceptron
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
 
 # Retrieve the data and extract the input features (X) and target (y)
 dataset = openml.datasets.get_dataset('baseball', download_data=True, download_qualities=True,
@@ -48,11 +50,10 @@ for i in non_categorical_cols:
 #EXPERIMENT CODE HERE
 
 #code for establishing parameters for models
-hiddenLayerSizes = [2, 3, 4]
+hiddenLayerSizes = [2, 4, 6]
 solvers = ['lbfgs', 'sgd', 'adam']
-max_iterations = [200, 400, 600]
+max_iterations = [500, 1000, 2000]
 models = [Perceptron(shuffle=True,random_state=42,verbose=1,tol=0.0001)]
-
 
 
 #code for creating models
@@ -62,19 +63,49 @@ for size in hiddenLayerSizes:
             models.append(MLPClassifier(hidden_layer_sizes=(size),max_iter=max_i, solver=solver))
 
 
-#k-folds code
 nfolds = 10
-first_seed = 42
-skf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=r + first_seed)
-
-# #code for fitting models
-# for m in models:
-#     m.fit(X, y)
-#     check = check + 1
+accuracies = np.zeros((len(models), nfolds))
 
 
+kf = KFold(n_splits=nfolds, shuffle=True, random_state=42)
+
+# KFold cross validation with 10 folds
+fold = 0
+for train_index, test_index in kf.split(X):
+    print(f"Fold {fold + 1}")
+
+    # Split the data into training and testing sets
+    X_train, X_test = X[train_index], X[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+
+    # Code for fitting models
+    for i, m in enumerate(models):
+        m.fit(X_train, y_train.ravel())
+        y_predict = m.predict(X_test)
+        accuracies[i, fold] = accuracy_score(y_test, y_predict)
+
+    fold += 1
+
+# Get average accuracies
+avg_accuracy = np.mean(accuracies, axis=1)
+
+# Print average accuracies for each model
+for i, accuracy in enumerate(avg_accuracy):
+    print(f"Model {i + 1}: Average Accuracy = {accuracy}")
 
 
+model_names = [f'Model {i+1}' for i in range(len(models))]
+avg_accuracy = np.mean(accuracies, axis=1)
+
+plt.figure(figsize=(10, 6))
+plt.bar(model_names, avg_accuracy, color='skyblue')
+plt.xlabel('Models')
+plt.ylabel('Average Accuracy')
+plt.title('Average Accuracy of Models')
+plt.xticks(rotation=45)
+plt.tight_layout()
+
+plt.show()
 
 
 
